@@ -1,0 +1,27 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (c) 2026 Audigma Player Project
+
+[package]
+name = "audigma-glue"
+version = "0.1.0"
+edition = "2024"
+license = "GPL-3.0-or-later"
+description = "JNI glue between the Android player and audigma: M7 packer for the FiiO JM21 native DSD path"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# audigma on GitHub, branch master. Cargo.lock pins the commit.
+audigma-dsp = { git = "https://github.com/benedictjohannes/audigma", branch = "master" }
+audigma-engine = { git = "https://github.com/benedictjohannes/audigma", branch = "master" }
+audigma-format = { git = "https://github.com/benedictjohannes/audigma", branch = "master" }
+audigma-settings = { git = "https://github.com/benedictjohannes/audigma", branch = "master" }
+jni = "0.21"
+libc = "0.2"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true

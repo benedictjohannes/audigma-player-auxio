@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  SPDX-License-Identifier: GPL-3.0-or-later
+  Copyright (c) 2026 Audigma Player Project
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- DSD output on the FiiO JM21: AudioManager.setCodecParam -->
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+</manifest>

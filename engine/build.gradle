@@ -1,0 +1,60 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (c) 2026 Audigma Player Project
+
+// The Audigma engine: Media3 audio sink, DSF extractor, DSD output and the Rust glue.
+// Must not depend on Auxio's packages (checked by scripts/check-engine-boundary.sh).
+plugins {
+    id 'com.android.library'
+    id "com.diffplug.spotless"
+}
+
+android {
+    namespace 'com.encelerate.audigmaplayer.engine'
+    compileSdk target_sdk
+    ndkVersion "$ndk_version"
+
+    defaultConfig {
+        minSdk min_sdk
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_21
+        targetCompatibility JavaVersion.VERSION_21
+    }
+
+    sourceSets {
+        main {
+            // libaudigma_glue.so (native/audigma-glue), arm64-v8a only: the app is for the FiiO JM21.
+            jniLibs.srcDir "build/rustJniLibs"
+        }
+    }
+}
+
+spotless {
+    kotlin {
+        target "src/**/*.kt"
+        ktfmt().kotlinlangStyle()
+        licenseHeaderFile(rootProject.file("engine/LICENSE_HEADER"))
+    }
+}
+
+tasks.register("buildAudigmaGlue", Exec) {
+    def glue = file("native/audigma-glue")
+    def out = layout.buildDirectory.dir("rustJniLibs").get().asFile
+    inputs.dir(new File(glue, "src"))
+    inputs.file(new File(glue, "Cargo.toml"))
+    inputs.file(new File(glue, "Cargo.lock"))
+    outputs.dir(out)
+    commandLine rootProject.file("scripts/build-glue.sh").absolutePath, out.absolutePath
+}
+
+tasks.named("preBuild") { dependsOn "buildAudigmaGlue" }
+
+dependencies {
+    implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
+
+    // Exoplayer (Vendored). api: the sink and extractor expose Media3 types.
+    api project(":media-lib-exoplayer")
+
+    implementation 'com.jakewharton.timber:timber:5.0.1'
+}
