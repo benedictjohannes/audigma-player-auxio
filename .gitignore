@@ -16,3 +16,6 @@ captures/
 .kotlin
 .aider*
 .env
+
+# Rust glue crate build output
+/engine/native/*/target/

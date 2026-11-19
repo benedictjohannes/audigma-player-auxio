@@ -33,10 +33,10 @@ import androidx.media3.decoder.ffmpeg.FfmpegAudioRenderer
 import androidx.media3.exoplayer.BaseRenderer
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.RenderersFactory
-import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.exoplayer.audio.MediaCodecAudioRenderer
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
 import androidx.media3.exoplayer.source.MediaSource
+import com.encelerate.audigmaplayer.audio.AudigmaAudioSink
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import kotlin.math.abs
@@ -659,15 +659,21 @@ class ExoPlaybackStateHolder(
             // battery/apk size/cache size]
             val audioRenderer = RenderersFactory { handler, _, audioListener, _, _ ->
                 arrayOf<BaseRenderer>(
-                    FfmpegAudioRenderer(handler, audioListener, replayGainProcessor),
+                    // Both sinks are wrapped so that all decoded audio passes through the
+                    // audigma seam, which also applies ReplayGain.
+                    FfmpegAudioRenderer(
+                        handler,
+                        audioListener,
+                        AudigmaAudioSink.create("ffmpeg", context) { replayGainProcessor.volume },
+                    ),
                     MediaCodecAudioRenderer(
                         context,
                         MediaCodecSelector.DEFAULT,
                         handler,
                         audioListener,
-                        DefaultAudioSink.Builder(context)
-                            .setAudioProcessors(arrayOf(replayGainProcessor))
-                            .build(),
+                        AudigmaAudioSink.create("mediacodec", context) {
+                            replayGainProcessor.volume
+                        },
                     ),
                 )
             }

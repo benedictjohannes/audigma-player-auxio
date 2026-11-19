@@ -79,19 +79,26 @@ private class TagInterpreterImpl(private val interpretation: Interpretation) : T
         val albumNameOrDir = song.tags.albumName ?: song.file.path.directory.name
 
         val musicBrainzId = song.tags.musicBrainzId?.toUuidOrNull()
+        // audigma-player: the primary UID also covers format and sample rate, and is always an
+        // Auxio-style hash (a MusicBrainz ID goes into the hash instead of being the whole UID).
+        // MusicGraph drops songs with an already seen UID, so without this a DSD64 file and its
+        // DSD128/256 or FLAC copies with identical tags collapse into one arbitrary song.
         val v363uid =
-            musicBrainzId?.let { Music.UID.musicBrainz(Music.UID.Item.SONG, it) }
-                ?: Music.UID.auxio(Music.UID.Item.SONG) {
-                    update(songNameOrFileWithoutExtCorrect)
-                    update(albumNameOrDir)
-                    update(song.tags.date)
+            Music.UID.auxio(Music.UID.Item.SONG) {
+                update(musicBrainzId?.toString())
+                update(songNameOrFileWithoutExtCorrect)
+                update(albumNameOrDir)
+                update(song.tags.date)
 
-                    update(song.tags.track)
-                    update(song.tags.disc)
+                update(song.tags.track)
+                update(song.tags.disc)
 
-                    update(song.tags.artistNames)
-                    update(song.tags.albumArtistNames)
-                }
+                update(song.tags.artistNames)
+                update(song.tags.albumArtistNames)
+
+                update(song.properties.mimeType)
+                update(song.properties.sampleRateHz)
+            }
 
         // I was an idiot and accidentally changed the UID spec in v4.0.0, so we need to calculate
         // the broken UID too and maintain compat for that version.

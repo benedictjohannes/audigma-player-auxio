@@ -24,6 +24,8 @@
 #include "JObjectRef.h"
 #include "util.h"
 
+#include "taglib/dsdifffile.h"
+#include "taglib/dsffile.h"
 #include "taglib/fileref.h"
 #include "taglib/flacfile.h"
 #include "taglib/mp4file.h"
@@ -126,6 +128,31 @@ bool parseVorbis(const std::string &name, TagLib::Ogg::Vorbis::File *vorbisFile,
     return true;
 }
 
+bool parseDsf(const std::string &name, TagLib::DSF::File *dsfFile,
+        JMetadataBuilder &jBuilder) {
+    auto tag = dsfFile->tag();
+    if (tag != nullptr) {
+        try {
+            jBuilder.setId3v2(*tag);
+        } catch (std::exception &e) {
+            LOGE("Unable to parse ID3v2 tag in %s: %s", name.c_str(), e.what());
+        }
+    }
+    return true;
+}
+
+bool parseDsdiff(const std::string &name, TagLib::DSDIFF::File *dsdiffFile,
+        JMetadataBuilder &jBuilder) {
+    if (dsdiffFile->hasID3v2Tag()) {
+        try {
+            jBuilder.setId3v2(*dsdiffFile->ID3v2Tag());
+        } catch (std::exception &e) {
+            LOGE("Unable to parse ID3v2 tag in %s: %s", name.c_str(), e.what());
+        }
+    }
+    return true;
+}
+
 bool parseWav(const std::string &name, TagLib::RIFF::WAV::File *wavFile,
         JMetadataBuilder &jBuilder) {
     auto tag = wavFile->ID3v2Tag();
@@ -210,6 +237,14 @@ bool dispatchAndParse(const std::string &name, TagLib::File *file,
     if (auto *wavFile = dynamic_cast<TagLib::RIFF::WAV::File*>(file)) {
         jBuilder.setMimeType("audio/wav");
         return parseWav(name, wavFile, jBuilder);
+    }
+    if (auto *dsfFile = dynamic_cast<TagLib::DSF::File*>(file)) {
+        jBuilder.setMimeType("audio/x-dsf");
+        return parseDsf(name, dsfFile, jBuilder);
+    }
+    if (auto *dsdiffFile = dynamic_cast<TagLib::DSDIFF::File*>(file)) {
+        jBuilder.setMimeType("audio/x-dff");
+        return parseDsdiff(name, dsdiffFile, jBuilder);
     }
     if (auto *mp4File = dynamic_cast<TagLib::MP4::File*>(file)) {
         // Why are we setting this as default?

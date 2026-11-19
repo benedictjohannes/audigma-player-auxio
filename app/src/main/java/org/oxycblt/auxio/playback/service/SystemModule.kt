@@ -35,6 +35,7 @@ import androidx.media3.extractor.ogg.OggExtractor
 import androidx.media3.extractor.text.DefaultSubtitleParserFactory
 import androidx.media3.extractor.ts.AdtsExtractor
 import androidx.media3.extractor.wav.WavExtractor
+import com.encelerate.audigmaplayer.audio.DsfExtractor
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -62,6 +63,9 @@ class SystemModule {
         // Ordering is derived from the DefaultExtractorsFactory's optimized ordering:
         // https://docs.google.com/document/d/1w2mKaWMxfz2Ei8-LdxqbPs1VLe_oudB-eryXXw9OvQQ.
         arrayOf(
+            // audigma: native DSD. First, since its sniff is a 32-byte header check and the MP3
+            // and ADTS sniffers scan for sync words that raw DSD data could imitate.
+            DsfExtractor(),
             FlacExtractor(),
             WavExtractor(),
             FragmentedMp4Extractor(DefaultSubtitleParserFactory.UNSUPPORTED),

@@ -38,6 +38,8 @@ plugins {
 spotless {
     kotlin {
         target "*/src/**/*.kt"
+        // The engine module carries its own SPDX header, see engine/build.gradle.
+        targetExclude "engine/**"
         ktfmt().kotlinlangStyle()
         licenseHeaderFile("NOTICE")
     }

@@ -18,12 +18,6 @@
  
 package org.oxycblt.auxio.playback.replaygain
 
-import androidx.media3.common.C
-import androidx.media3.common.Format
-import androidx.media3.common.Player
-import androidx.media3.common.audio.AudioProcessor
-import androidx.media3.common.audio.BaseAudioProcessor
-import java.nio.ByteBuffer
 import javax.inject.Inject
 import kotlin.math.pow
 import org.oxycblt.auxio.playback.PlaybackSettings
@@ -35,12 +29,11 @@ import org.oxycblt.musikr.Song
 import timber.log.Timber as L
 
 /**
- * An [AudioProcessor] that handles ReplayGain values and their amplification of the audio stream.
- * Instead of leveraging the volume attribute like other implementations, this system manipulates
- * the bitstream itself to modify the volume, which allows the use of positive ReplayGain values.
- *
- * Note: This audio processor must be attached to a respective [Player] instance as a
- * [Player.Listener] to function properly.
+ * Tracks the ReplayGain adjustment of the current song. The audio sink
+ * (`com.encelerate.audigmaplayer.audio.AudigmaAudioSink`) applies [volume] to the bitstream itself,
+ * which allows the use of positive ReplayGain values. This used to be a Media3 `AudioProcessor`,
+ * but `DefaultAudioSink` skips such processors when it outputs float PCM, which bit-perfect
+ * high-resolution playback needs.
  *
  * @author Alexander Capehart (OxygenCobalt)
  */
@@ -49,13 +42,11 @@ class ReplayGainAudioProcessor
 constructor(
     private val playbackManager: PlaybackStateManager,
     private val playbackSettings: PlaybackSettings,
-) : BaseAudioProcessor(), PlaybackStateManager.Listener, PlaybackSettings.Listener {
-    private var volume = 1f
-        set(value) {
-            field = value
-            // Processed bytes are no longer valid, flush the stream
-            flush()
-        }
+) : PlaybackStateManager.Listener, PlaybackSettings.Listener {
+    /** Linear gain for the current song; 1 means no adjustment. Read from the playback thread. */
+    @Volatile
+    var volume = 1f
+        private set
 
     fun attach() {
         playbackManager.addListener(this)
@@ -161,71 +152,5 @@ constructor(
 
         // Final adjustment along the volume curve.
         volume = 10f.pow(amplifiedAdjustment / 20f)
-    }
-
-    // --- AUDIO PROCESSOR IMPLEMENTATION ---
-
-    override fun onConfigure(
-        inputAudioFormat: AudioProcessor.AudioFormat
-    ): AudioProcessor.AudioFormat {
-        if (inputAudioFormat.encoding == C.ENCODING_PCM_16BIT) {
-            // AudioProcessor is only provided 16-bit PCM audio data, so that's the only
-            // encoding we need to check for.
-            // TODO: Convert to a low-level audio processor capable of handling any kind of
-            //  PCM data, once ExoPlayer can support it.
-            return inputAudioFormat
-        }
-
-        throw AudioProcessor.UnhandledAudioFormatException(inputAudioFormat)
-    }
-
-    override fun queueInput(inputBuffer: ByteBuffer) {
-        val pos = inputBuffer.position()
-        val limit = inputBuffer.limit()
-        val buffer = replaceOutputBuffer(limit - pos)
-
-        if (volume == 1f) {
-            // Nothing to adjust, just copy the audio data.
-            // isActive is technically a much better way of doing a no-op like this, but since
-            // the adjustment can change during playback I'm largely forced to do this.
-            buffer.put(inputBuffer.slice())
-        } else {
-            for (i in pos until limit step 2) {
-                // 16-bit PCM audio, deserialize a little-endian short.
-                var sample = inputBuffer.getLeShort(i)
-                // Ensure we clamp the values to the minimum and maximum values possible
-                // for the encoding. This prevents issues where samples amplified beyond
-                // 1 << 16 will end up becoming truncated during the conversion to a short,
-                // resulting in popping.
-                sample =
-                    (sample * volume)
-                        .toInt()
-                        .coerceAtLeast(Short.MIN_VALUE.toInt())
-                        .coerceAtMost(Short.MAX_VALUE.toInt())
-                        .toShort()
-                buffer.putLeShort(sample)
-            }
-        }
-
-        inputBuffer.position(limit)
-        buffer.flip()
-    }
-
-    /**
-     * Always read a little-endian [Short] from the [ByteBuffer] at the given index.
-     *
-     * @param at The index to read the [Short] from.
-     */
-    private fun ByteBuffer.getLeShort(at: Int) =
-        get(at + 1).toInt().shl(8).or(get(at).toInt().and(0xFF)).toShort()
-
-    /**
-     * Always write a little-endian [Short] at the end of the [ByteBuffer].
-     *
-     * @param short The [Short] to write.
-     */
-    private fun ByteBuffer.putLeShort(short: Short) {
-        put(short.toByte())
-        put(short.toInt().shr(8).toByte())
     }
 }

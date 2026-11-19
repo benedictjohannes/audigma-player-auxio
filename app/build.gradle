@@ -148,6 +148,9 @@ dependencies {
     // Musikr
     implementation project(":musikr")
 
+    // Audigma engine: audio sink, DSF extractor, DSD output, native glue
+    implementation project(":engine")
+
     // --- THIRD PARTY ---
 
     // Exoplayer (Vendored)
