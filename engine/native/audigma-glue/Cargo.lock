@@ -20,7 +20,7 @@ dependencies = [
 [[package]]
 name = "audigma-dsp"
 version = "0.1.0"
-source = "git+https://github.com/benedictjohannes/audigma?branch=master#0b1ea02f4f518205d3ef338ba0491450ef852f3a"
+source = "git+https://github.com/benedictjohannes/audigma?branch=master#3aefad428d4a1647726c6b8f6ef7762950459651"
 dependencies = [
  "serde",
  "smallvec",
@@ -30,7 +30,7 @@ dependencies = [
 [[package]]
 name = "audigma-engine"
 version = "0.1.0"
-source = "git+https://github.com/benedictjohannes/audigma?branch=master#0b1ea02f4f518205d3ef338ba0491450ef852f3a"
+source = "git+https://github.com/benedictjohannes/audigma?branch=master#3aefad428d4a1647726c6b8f6ef7762950459651"
 dependencies = [
  "audigma-dsp",
  "audigma-format",
@@ -47,7 +47,7 @@ dependencies = [
 [[package]]
 name = "audigma-format"
 version = "0.1.0"
-source = "git+https://github.com/benedictjohannes/audigma?branch=master#0b1ea02f4f518205d3ef338ba0491450ef852f3a"
+source = "git+https://github.com/benedictjohannes/audigma?branch=master#3aefad428d4a1647726c6b8f6ef7762950459651"
 dependencies = [
  "audigma-dsp",
  "hound",
@@ -74,7 +74,7 @@ dependencies = [
 [[package]]
 name = "audigma-log"
 version = "0.1.0"
-source = "git+https://github.com/benedictjohannes/audigma?branch=master#0b1ea02f4f518205d3ef338ba0491450ef852f3a"
+source = "git+https://github.com/benedictjohannes/audigma?branch=master#3aefad428d4a1647726c6b8f6ef7762950459651"
 dependencies = [
  "rtrb",
  "serde",
@@ -87,7 +87,7 @@ dependencies = [
 [[package]]
 name = "audigma-settings"
 version = "0.1.0"
-source = "git+https://github.com/benedictjohannes/audigma?branch=master#0b1ea02f4f518205d3ef338ba0491450ef852f3a"
+source = "git+https://github.com/benedictjohannes/audigma?branch=master#3aefad428d4a1647726c6b8f6ef7762950459651"
 dependencies = [
  "audigma-dsp",
  "audigma-format",
