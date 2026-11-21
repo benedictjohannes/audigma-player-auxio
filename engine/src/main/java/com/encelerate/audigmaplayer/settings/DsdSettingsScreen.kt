@@ -91,8 +91,17 @@ private val FAMILIES =
 
 private val NTFS =
     listOf(
-        Choice("reference", "Reference", "Loudest design that still meets the noise targets."),
-        Choice("comfortable", "Comfortable", "Louder; only dynamic range and spurs are checked."),
+        Choice(
+            "reference",
+            "Reference Grade",
+            "Noise below −141 dBFS with the least volume reduction that still meets it, adapts " +
+                "H∞ per rate (DSD64 uses 1.40). Recommended.",
+        ),
+        Choice(
+            "comfortable",
+            "Comfortable",
+            "Dynamic range ≥ 120 dB and spurs ≤ −120 dBFS, adapts H∞ per rate.",
+        ),
         Choice(
             "fixed_h_inf_1_4",
             "Fixed H∞ at 1.40 for every rate",
@@ -101,13 +110,13 @@ private val NTFS =
         Choice(
             "fixed_h_inf_1_5",
             "Fixed H∞ at 1.50 for every rate",
-            "Quieter than the other presets.",
+            "Classic textbook design, quietest at every rate.",
         ),
     )
 
 private val ORDERS =
     listOf(
-        Choice(5, "5th order", "Default. The better choice at DSD64."),
+        Choice(5, "5th order", "Recommended. 7th order shows no consistent benefit at any rate."),
         Choice(7, "7th order", "About 10% more CPU, no consistent benefit measured."),
     )
 
@@ -165,7 +174,17 @@ fun DsdSettingsScreen(onBack: () -> Unit) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                 )
-                Section("PCM to DSD", MULTIPLIERS, settings.multiplier) { m ->
+                Section(
+                    "PCM to DSD",
+                    MULTIPLIERS,
+                    settings.multiplier,
+                    "Offload ΔΣ modulation to the CPU instead of the DAC, trading battery and " +
+                        "CPU usage for a modulation stage you can tune.\n" +
+                        "At DSD64, software modulation noise performance can fall short of the " +
+                        "audibility threshold.\n" +
+                        "At DSD128 and above, software modulation can match or exceed hardware " +
+                        "DAC filters.",
+                ) { m ->
                     change { it.copy(multiplier = m) }
                 }
                 if (!settings.enabled) return@Column
