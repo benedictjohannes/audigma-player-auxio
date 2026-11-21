@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Audigma Player strings (fork additions) -->
+    <string name="info_audigma_notice_title" translatable="false">Current Status</string>
+    <string name="info_audigma_notice_text" translatable="false">Tested and developed on: FiiO JM21, firmware 1.1.3.\nOther FiiO devices: Untested and unverified. Might work.\nOther devices play normal PCM; DSD output is not expected to work.\nPlanned: DSD output to USB DACs (native DSD and DoP).</string>
+    <string name="info_audigma_desc" translatable="false">Audio player with Audigma PCM to DSD upsampling integrated.\nA fork of Auxio, a simple, rational music player for Android.</string>
+</resources>

@@ -2,6 +2,9 @@
 <resources>
     <!-- Info namespace | App labels -->
     <string name="info_app_name" translatable="false">Audigma Player</string>
+    <string name="lbl_auxio_about" translatable="false">About Auxio</string>
+    <string name="lbl_auxio_author" translatable="false">Auxio Author</string>
+    <string name="lbl_auxio_supporters" translatable="false">Auxio Supporters</string>
 
     <!-- Format Namespace | Value formatting/plurals -->
     <string name="fmt_two" translatable="false">%1$s • %2$s</string>
