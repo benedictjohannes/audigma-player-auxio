@@ -297,6 +297,8 @@
 
     <string name="set_audio">Audio</string>
     <string name="set_audio_desc">Configure sound and playback behavior</string>
+    <string name="set_dsd">PCM to DSD</string>
+    <string name="set_dsd_desc">Play PCM tracks as DSD</string>
     <string name="set_playback">Playback</string>
     <string name="set_headset_autoplay">Headset autoplay</string>
     <string name="set_headset_autoplay_desc">Always start playing when a headset is connected (may not work on all devices)</string>

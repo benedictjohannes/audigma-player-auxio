@@ -28,11 +28,19 @@ public final class AudigmaNative {
    * Starts a stopped writer thread that writes M7 from its ring with
    * track.write(scratch, n, WRITE_BLOCKING). scratch: direct buffer, multiple of 8192 bytes.
    * pcmRate 0: input is raw DSF via nativePush; otherwise audigma converts PCM at pcmRate Hz
-   * (nativePushPcm) to dsdRate Hz stereo DSD on its own threads. Returns a handle, 0 on failure
-   * (IllegalStateException with the reason when the converter could not be set up).
+   * (nativePushPcm) to dsdRate Hz (from nativeResolveDsdRate with the same options) stereo DSD on
+   * its own threads, configured by options (key=value lines, see DsdSettings.toNative; ignored for
+   * raw DSD). Returns a handle, 0 on failure (IllegalStateException with the reason when the
+   * converter could not be set up).
    */
   public static native long nativeCreate(
-      Object track, ByteBuffer scratch, int ringBytes, int dsdRate, int pcmRate);
+      Object track, ByteBuffer scratch, int ringBytes, int dsdRate, int pcmRate, String options);
+
+  /**
+   * The DSD bit rate in Hz audigma converts pcmRate Hz PCM to under options (the rate family may
+   * follow the source). Throws IllegalStateException with audigma's reason when it rejects them.
+   */
+  public static native int nativeResolveDsdRate(String options, int pcmRate);
 
   /** Copies raw DSF block pairs into the ring, never blocks; returns bytes accepted, -1 bad range. */
   public static native int nativePush(long handle, ByteBuffer src, int off, int len);

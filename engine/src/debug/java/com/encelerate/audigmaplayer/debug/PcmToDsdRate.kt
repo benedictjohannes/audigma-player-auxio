@@ -8,40 +8,37 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.util.Log
-import com.encelerate.audigmaplayer.audio.AudigmaAudioSink
+import com.encelerate.audigmaplayer.audio.DsdSettings
+import com.encelerate.audigmaplayer.audio.DsdSettingsStore
 
 /**
- * Debug-only: sets [AudigmaAudioSink.pcmToDsdRateHz] until the settings UI exists. Not persisted;
- * applies from the next track (the next sink `configure`). Logs under tag `PCMTODSD`.
+ * Debug-only: sets the multiplier and rate family of [DsdSettingsStore] without the settings screen
+ * (the other options stay as they are). Persisted like the screen's values; applies from the next
+ * track. Logs under tag `PCMTODSD`.
  *
  * ```
  * am broadcast -n org.oxycblt.auxio.debug/com.encelerate.audigmaplayer.debug.PcmToDsdRate \
  *   --ei dsd 128 [--ei family 48]
  * ```
  *
- * `dsd`: 64, 128 or 256; 0 plays PCM bit-perfect. `family`: 44 (default) or 48 (3.072 MHz base).
+ * `dsd`: 64, 128 or 256; 0 plays PCM bit-perfect. `family`: 44 (default), 48 or 0 (follow source).
  */
 class PcmToDsdRate : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
+        DsdSettingsStore.init(context)
         val dsd = intent.getIntExtra("dsd", -1)
-        val base =
+        if (dsd !in setOf(0, 64, 128, 256)) {
+            Log.e(TAG, "dsd must be 0, 64, 128 or 256, got $dsd")
+            return
+        }
+        val family =
             when (intent.getIntExtra("family", 44)) {
-                48 -> 3_072_000
-                else -> 2_822_400
+                48 -> DsdSettings.FAMILY_48000
+                0 -> DsdSettings.FAMILY_SOURCE
+                else -> DsdSettings.FAMILY_44100
             }
-        val hz =
-            when (dsd) {
-                0 -> 0
-                64,
-                128,
-                256 -> dsd / 64 * base
-                else -> {
-                    Log.e(TAG, "dsd must be 0, 64, 128 or 256, got $dsd")
-                    return
-                }
-            }
-        AudigmaAudioSink.pcmToDsdRateHz = hz
-        Log.i(TAG, "PCM to DSD rate: $hz Hz, from the next track")
+        DsdSettingsStore.update { it.copy(multiplier = dsd, rateFamily = family) }
+        Log.i(TAG, "PCM to DSD: ${DsdSettingsStore.current}, from the next track")
     }
 
     private companion object {

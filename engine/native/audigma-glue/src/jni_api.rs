@@ -8,7 +8,7 @@
 
 use crate::convert::Converter;
 use crate::writer::{ERR_EXCEPTION, Engine, Output, writer_loop};
-use jni::objects::{GlobalRef, JByteBuffer, JClass, JObject, JValue};
+use jni::objects::{GlobalRef, JByteBuffer, JClass, JObject, JString, JValue};
 use jni::sys::{jboolean, jfloat, jint, jlong, jstring};
 use jni::{JNIEnv, JavaVM};
 use std::sync::Arc;
@@ -90,9 +90,10 @@ fn direct<'a>(env: &JNIEnv, src: &JByteBuffer, off: jint, len: jint) -> Option<&
 }
 
 /// `static native long nativeCreate(AudioTrack track, ByteBuffer scratch, int ringBytes,
-/// int dsdRate, int pcmRate)`. `scratch` is a direct buffer, a multiple of 8192 bytes, used as
+/// int dsdRate, int pcmRate, String options)`. `scratch` is a direct buffer, a multiple of 8192 bytes, used as
 /// the track's write buffer. `pcmRate` 0: the input is raw DSF ([`nativePush`]); otherwise PCM
-/// at that rate is converted to `dsdRate` ([`nativePushPcm`]). Returns 0 on failure, with an
+/// at that rate is converted to `dsdRate` ([`nativePushPcm`]) under `options` (see
+/// [`crate::options`]; ignored for raw DSD). Returns 0 on failure, with an
 /// `IllegalStateException` pending when the converter could not be set up.
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_com_encelerate_audigmaplayer_audio_AudigmaNative_nativeCreate(
@@ -103,6 +104,7 @@ pub extern "system" fn Java_com_encelerate_audigmaplayer_audio_AudigmaNative_nat
     ring_bytes: jint,
     dsd_rate: jint,
     pcm_rate: jint,
+    options: JString,
 ) -> jlong {
     let (Ok(vm), Ok(track), Ok(buf), Ok(ptr), Ok(cap)) = (
         env.get_java_vm(),
@@ -135,7 +137,14 @@ pub extern "system" fn Java_com_encelerate_audigmaplayer_audio_AudigmaNative_nat
         return 0;
     };
     let conv = if pcm_rate > 0 {
-        match Converter::new(engine.clone(), dsd_rate as u32, pcm_rate as u32) {
+        let options = match env.get_string(&options) {
+            Ok(o) => String::from(o),
+            Err(_) => {
+                engine.destroy(Duration::from_secs(1));
+                return 0;
+            }
+        };
+        match Converter::new(engine.clone(), dsd_rate as u32, pcm_rate as u32, &options) {
             Ok(c) => Some(c),
             Err(e) => {
                 // The writer never ran, so nothing can block it.
@@ -148,6 +157,31 @@ pub extern "system" fn Java_com_encelerate_audigmaplayer_audio_AudigmaNative_nat
         None
     };
     Box::into_raw(Box::new(Native { engine, conv })) as jlong
+}
+
+/// `static native int nativeResolveDsdRate(String options, int pcmRate)`: the DSD bit rate in Hz
+/// audigma plays `pcmRate` Hz PCM at under `options` (see [`crate::options`]). Throws
+/// `IllegalStateException` with audigma's reason when the options or the rate are rejected.
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_encelerate_audigmaplayer_audio_AudigmaNative_nativeResolveDsdRate(
+    mut env: JNIEnv,
+    _class: JClass,
+    options: JString,
+    pcm_rate: jint,
+) -> jint {
+    let Ok(options) = env.get_string(&options).map(String::from) else {
+        return 0;
+    };
+    match u32::try_from(pcm_rate)
+        .map_err(|e| e.to_string())
+        .and_then(|r| crate::options::dsd_rate(&options, r))
+    {
+        Ok(rate) => rate as jint,
+        Err(e) => {
+            let _ = env.throw_new("java/lang/IllegalStateException", e);
+            0
+        }
+    }
 }
 
 /// `static native int nativePush(long h, ByteBuffer src, int off, int len)`: packs raw DSF block

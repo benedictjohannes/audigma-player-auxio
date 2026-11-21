@@ -35,6 +35,8 @@ private constructor(
     val dsdRateHz: Int,
     /** PCM input rate converted by audigma; 0 for raw DSD input. */
     val pcmRateHz: Int,
+    /** Options of the converter; null for raw DSD. */
+    val settings: DsdSettings?,
     private val track: AudioTrack,
     private val handle: Long,
 ) {
@@ -306,13 +308,29 @@ private constructor(
                 format.pcmEncoding in PCM_ENCODINGS
 
         /**
-         * Opens a stereo DSD output at [dsdRateHz] (2822400, 5644800 or 11289600). With
-         * [pcmRateHz] > 0 the input is PCM at that rate ([isConvertible]), converted by audigma.
+         * The DSD rate in Hz audigma converts [pcmRateHz] PCM to under [settings]; 0 when audigma
+         * rejects them or the library is missing.
+         */
+        fun resolveRate(settings: DsdSettings, pcmRateHz: Int): Int {
+            if (!libraryLoaded) return 0
+            return try {
+                AudigmaNative.nativeResolveDsdRate(settings.toNative(), pcmRateHz)
+            } catch (e: IllegalStateException) {
+                L.w("audigma rejected $settings at $pcmRateHz Hz: ${e.message}")
+                0
+            }
+        }
+
+        /**
+         * Opens a stereo DSD output at [dsdRateHz] (see [supports]). With [pcmRateHz] > 0 the input
+         * is PCM at that rate ([isConvertible]), converted by audigma under [settings] ([dsdRateHz]
+         * from [resolveRate]).
          *
          * @throws IllegalStateException when the device refuses (not a JM21, library missing) or
          *   audigma rejects the conversion.
          */
-        fun open(dsdRateHz: Int, pcmRateHz: Int = 0): DsdOutput {
+        fun open(dsdRateHz: Int, pcmRateHz: Int = 0, settings: DsdSettings? = null): DsdOutput {
+            require((pcmRateHz > 0) == (settings != null)) { "settings go with PCM input" }
             check(supports(dsdRateHz)) { "DSD rate $dsdRateHz unsupported" }
             val trackRate = dsdRateHz / 32
             // Hidden, static, FiiO-only: mode 1 = native DSD.
@@ -349,7 +367,14 @@ private constructor(
             val scratch = ByteBuffer.allocateDirect(TRACK_BYTES).order(ByteOrder.nativeOrder())
             val handle =
                 try {
-                    AudigmaNative.nativeCreate(track, scratch, RING_BYTES, dsdRateHz, pcmRateHz)
+                    AudigmaNative.nativeCreate(
+                        track,
+                        scratch,
+                        RING_BYTES,
+                        dsdRateHz,
+                        pcmRateHz,
+                        settings?.toNative().orEmpty(),
+                    )
                 } catch (e: IllegalStateException) {
                     track.release()
                     throw e
@@ -358,7 +383,7 @@ private constructor(
                 track.release()
                 error("native writer failed to start")
             }
-            val output = DsdOutput(dsdRateHz, pcmRateHz, track, handle)
+            val output = DsdOutput(dsdRateHz, pcmRateHz, settings, track, handle)
             L.d(
                 "DSD output opened: rate=$dsdRateHz trackRate=$trackRate " +
                     AudigmaNative.nativeDescribe(handle)

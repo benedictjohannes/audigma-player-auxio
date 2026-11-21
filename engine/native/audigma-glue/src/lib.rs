@@ -6,6 +6,7 @@
 pub mod convert;
 pub mod jni_api;
 pub mod m7;
+pub mod options;
 pub mod writer;
 
 use jni::JNIEnv;

@@ -22,8 +22,9 @@ import timber.log.Timber as L
  *   rather than as a Media3 `AudioProcessor`, because `DefaultAudioSink` skips custom processors
  *   when it outputs float.
  * - Raw DSD ([MIME_DSD_DSF]) to a [DsdOutput] at the file's rate, untouched (passthrough).
- * - PCM converted to DSD by audigma when [pcmToDsdRateHz] is set and the format is convertible
- *   ([DsdOutput.isConvertible]); the gain is applied before the modulator.
+ * - PCM converted to DSD by audigma when [DsdSettingsStore] has a multiplier and the format is
+ *   convertible ([DsdOutput.isConvertible]); the gain is applied before the modulator. The settings
+ *   are read at every [configure], so a change applies from the next track.
  *
  * @param name Identifies the owning renderer in logs.
  * @param gain Linear gain to apply, read once per buffer on the playback thread.
@@ -102,11 +103,11 @@ class AudigmaAudioSink(
 
     /** The DSD output [format] needs, or null for the delegate (PCM, conversion off or n/a). */
     private fun dsdTargetOf(format: Format): DsdTarget? {
-        if (isDsd(format)) return DsdTarget(format.sampleRate, 0)
-        val rate = pcmToDsdRateHz
-        return if (DsdOutput.supports(rate) && DsdOutput.isConvertible(format)) {
-            DsdTarget(rate, format.sampleRate)
-        } else null
+        if (isDsd(format)) return DsdTarget(format.sampleRate, 0, null)
+        val settings = DsdSettingsStore.current
+        if (!settings.enabled || !DsdOutput.isConvertible(format)) return null
+        val rate = DsdOutput.resolveRate(settings, format.sampleRate)
+        return if (DsdOutput.supports(rate)) DsdTarget(rate, format.sampleRate, settings) else null
     }
 
     private fun setDsdInputFormat(format: Format) {
@@ -143,7 +144,7 @@ class AudigmaAudioSink(
         val format = config.format
         val target = config.dsdTarget
         if (target != null) {
-            val out = DsdOutput.open(target.dsdRateHz, target.pcmRateHz)
+            val out = DsdOutput.open(target.dsdRateHz, target.pcmRateHz, target.settings)
             dsd = out
             setDsdInputFormat(format)
             if (playing) out.play()
@@ -353,9 +354,17 @@ class AudigmaAudioSink(
         val dsdTarget: DsdTarget?,
     )
 
-    /** A DSD output at [dsdRateHz]; [pcmRateHz] is the converted PCM rate, 0 for raw DSD. */
-    private data class DsdTarget(val dsdRateHz: Int, val pcmRateHz: Int) {
-        fun isServedBy(out: DsdOutput) = out.dsdRateHz == dsdRateHz && out.pcmRateHz == pcmRateHz
+    /**
+     * A DSD output at [dsdRateHz]; [pcmRateHz] is the converted PCM rate, 0 for raw DSD, which has
+     * no [settings]. A changed option needs a new output, as a changed rate does.
+     */
+    private data class DsdTarget(
+        val dsdRateHz: Int,
+        val pcmRateHz: Int,
+        val settings: DsdSettings?,
+    ) {
+        fun isServedBy(out: DsdOutput) =
+            out.dsdRateHz == dsdRateHz && out.pcmRateHz == pcmRateHz && out.settings == settings
     }
 
     companion object {
@@ -367,14 +376,6 @@ class AudigmaAudioSink(
          * delivered by `MediaCodecAudioRenderer` in codec bypass.
          */
         const val MIME_DSD_DSF = "audio/x-audigma-dsd-dsf"
-
-        /**
-         * DSD rate in Hz (2822400, 5644800 or 11289600) that PCM is converted to by audigma; any
-         * other value (0) plays PCM bit-perfect. Read at every [configure], so a change applies
-         * from the next track on.
-         */
-        // Step I: DSD256 until the settings UI (Step J) owns this and defaults it to off.
-        @Volatile @JvmStatic var pcmToDsdRateHz = 11_289_600
 
         private fun isDsd(format: Format) = MIME_DSD_DSF == format.sampleMimeType
 
@@ -393,11 +394,13 @@ class AudigmaAudioSink(
          *
          * @param gain See [AudigmaAudioSink].
          */
-        fun create(name: String, context: Context, gain: () -> Float) =
-            AudigmaAudioSink(
+        fun create(name: String, context: Context, gain: () -> Float): AudigmaAudioSink {
+            DsdSettingsStore.init(context)
+            return AudigmaAudioSink(
                 name,
                 DefaultAudioSink.Builder(context).setEnableFloatOutput(true).build(),
                 gain,
             )
+        }
     }
 }

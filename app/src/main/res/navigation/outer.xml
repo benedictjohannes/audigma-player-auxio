@@ -34,6 +34,9 @@
             android:id="@+id/audio_peferences"
             app:destination="@id/audio_preferences_fragment" />
         <action
+            android:id="@+id/dsd_settings"
+            app:destination="@id/dsd_settings_fragment" />
+        <action
             android:id="@+id/music_locations_settings"
             app:destination="@id/music_locations_dialog" />
     </fragment>
@@ -73,6 +76,11 @@
             android:id="@+id/pre_amp_settings"
             app:destination="@id/pre_amp_dialog" />
     </fragment>
+
+    <fragment
+        android:id="@+id/dsd_settings_fragment"
+        android:name="com.encelerate.audigmaplayer.settings.DsdSettingsFragment"
+        android:label="dsd_settings_fragment" />
 
     <dialog
         android:id="@+id/accent_dialog"
