@@ -21,7 +21,7 @@ import java.nio.ByteOrder
  * control operations against it while it plays. Logs under tag `DSDSELFTEST`.
  *
  * ```
- * am broadcast -n org.oxycblt.auxio.debug/com.encelerate.audigmaplayer.debug.DsdSelfTest \
+ * am broadcast -n com.encelerate.audigmaplayer.debug/com.encelerate.audigmaplayer.debug.DsdSelfTest \
  *   --es file full.dsf --es script "play:6000,pause:1500,play:4000,seek:30:4000,end"
  * ```
  *

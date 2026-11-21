@@ -17,7 +17,7 @@ import com.encelerate.audigmaplayer.audio.DsdSettingsStore
  * track. Logs under tag `PCMTODSD`.
  *
  * ```
- * am broadcast -n org.oxycblt.auxio.debug/com.encelerate.audigmaplayer.debug.PcmToDsdRate \
+ * am broadcast -n com.encelerate.audigmaplayer.debug/com.encelerate.audigmaplayer.debug.PcmToDsdRate \
  *   --ei dsd 128 [--ei family 48]
  * ```
  *
