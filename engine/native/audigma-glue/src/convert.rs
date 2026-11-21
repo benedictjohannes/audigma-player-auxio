@@ -29,7 +29,7 @@ use audigma_engine::{
     ThreadPlacement, TileProcessor, Waiter, WorkerSetup,
 };
 use audigma_settings::Settings;
-use std::sync::atomic::{AtomicI32, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicI32, AtomicU32, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
@@ -105,6 +105,12 @@ struct Shared {
     /// Worker and converter threads whose pinning to the fast cores failed / succeeded.
     pin_failed: AtomicUsize,
     pin_ok: AtomicUsize,
+    /// Diagnostics for loud material: input samples clamped to full scale after the gain, the
+    /// largest |sample| after the gain since the last [`Converter::stats`] (f32 bits; for
+    /// non-negative floats the bit order is the value order) and the modulators' overloads.
+    clipped: AtomicU64,
+    peak_bits: AtomicU32,
+    overloads: AtomicU64,
 }
 
 impl Shared {
@@ -180,6 +186,9 @@ impl Converter {
             error: AtomicI32::new(0),
             pin_failed: AtomicUsize::new(0),
             pin_ok: AtomicUsize::new(0),
+            clipped: AtomicU64::new(0),
+            peak_bits: AtomicU32::new(0),
+            overloads: AtomicU64::new(0),
         });
         let fast = fast_cpus();
         let processor = TileProcessor::new_with_input(
@@ -245,15 +254,24 @@ impl Converter {
         let g = gain as f64;
         let mut st = self.shared.lock();
         let n = (src.len() / frame).min(st.ring.free());
+        let (mut peak, mut clipped) = (0.0f64, 0u64);
+        let mut limit = |v: f64| {
+            let m = v.abs();
+            peak = peak.max(m);
+            clipped += u64::from(m > 1.0);
+            v.clamp(-1.0, 1.0)
+        };
         for f in src[..n * frame].chunks_exact(frame) {
-            let a = (sample(&f[..bytes], encoding) * g).clamp(-1.0, 1.0);
+            let a = limit(sample(&f[..bytes], encoding) * g);
             let b = if channels == 2 {
-                (sample(&f[bytes..], encoding) * g).clamp(-1.0, 1.0)
+                limit(sample(&f[bytes..], encoding) * g)
             } else {
                 a
             };
             st.ring.push(a, b);
         }
+        self.shared.clipped.fetch_add(clipped, Ordering::Relaxed);
+        self.shared.peak_bits.fetch_max((peak as f32).to_bits(), Ordering::Relaxed);
         if n > 0 {
             // More input after the end: no more silence, the stream goes on.
             st.ended = false;
@@ -304,6 +322,17 @@ impl Converter {
 
     pub fn clear_error(&self) {
         self.shared.error.store(0, Ordering::Relaxed);
+    }
+
+    /// `(clipped samples, overloads, peak since the last call)` for logs; the peak is the
+    /// largest |sample| after gain, 1.0 = full scale.
+    pub fn stats(&self) -> (u64, u64, f32) {
+        let peak = f32::from_bits(self.shared.peak_bits.swap(0, Ordering::Relaxed));
+        (
+            self.shared.clipped.load(Ordering::Relaxed),
+            self.shared.overloads.load(Ordering::Relaxed),
+            peak,
+        )
     }
 
     /// Configuration and thread placement, for logs.
@@ -424,6 +453,7 @@ fn convert_loop(sh: &Shared, engine: &Engine, mut proc: TileProcessor, linear_ga
             if let Err(e) = proc.process_input_pcm(&[&l[..n], &r[..n]], controls) {
                 return fail("process", &e);
             }
+            sh.overloads.store(proc.total_overload_count(), Ordering::Relaxed);
             match packer.pack(proc.channel_dsd(0), proc.channel_dsd(1), &mut out) {
                 Ok(m) => k = m,
                 Err(e) => return fail("pack", &e),

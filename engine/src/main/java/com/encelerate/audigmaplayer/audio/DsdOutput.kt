@@ -47,6 +47,9 @@ private constructor(
     /** Last `AudioTrack.underrunCount` seen by [checkUnderruns], and when it was read. */
     private var underruns = 0
     private var underrunCheckNanos = 0L
+    /** Converter's clipped-sample and modulator-overload counts at the last [checkLoud]. */
+    private var clipped = 0L
+    private var overloads = 0L
     /** [endOfStream] was called and no input arrived since: an underrun now is the drain's. */
     private var ending = false
 
@@ -188,6 +191,7 @@ private constructor(
 
     /** Logs underruns since the last check, so each one is placed in time. */
     private fun checkUnderruns() {
+        checkLoud()
         val n = runCatching { track.underrunCount }.getOrDefault(underruns)
         if (n <= underruns) return
         L.w(
@@ -196,6 +200,23 @@ private constructor(
                 if (ending) ", draining" else ""
         )
         underruns = n
+    }
+
+    /**
+     * Logs clipped input samples (the gain pushed them past full scale) and modulator overloads
+     * since the last check, with the largest sample seen (1000 = full scale).
+     */
+    private fun checkLoud() {
+        val s = AudigmaNative.nativeStats(handle) ?: return
+        if (s[0] > clipped || s[1] > overloads) {
+            L.w(
+                "DSD loud input: clipped +${s[0] - clipped} (total ${s[0]}), " +
+                    "modulator overloads +${s[1] - overloads} (total ${s[1]}), " +
+                    "peak ${s[2]}/1000 at ${positionUs / 1000} ms"
+            )
+        }
+        clipped = s[0]
+        overloads = s[1]
     }
 
     private fun primed() = bytesWritten >= TRACK_BYTES

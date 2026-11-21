@@ -306,6 +306,25 @@ pub extern "system" fn Java_com_encelerate_audigmaplayer_audio_AudigmaNative_nat
     }
 }
 
+/// `[clipped samples, modulator overloads, peak since the last call in 1/1000 of full scale]`
+/// of the converter; zeros for raw DSD. Reading resets the peak.
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_encelerate_audigmaplayer_audio_AudigmaNative_nativeStats<'a>(
+    env: JNIEnv<'a>,
+    _class: JClass<'a>,
+    handle: jlong,
+) -> jni::sys::jlongArray {
+    let (clipped, overloads, peak) = native(handle).conv.as_ref().map_or((0, 0, 0.0), Converter::stats);
+    let v = [clipped as jlong, overloads as jlong, (peak * 1000.0).round() as jlong];
+    let Ok(a) = env.new_long_array(3) else {
+        return std::ptr::null_mut();
+    };
+    if env.set_long_array_region(&a, 0, &v).is_err() {
+        return std::ptr::null_mut();
+    }
+    a.into_raw()
+}
+
 /// Converter configuration and thread placement for logs; empty for raw DSD.
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_com_encelerate_audigmaplayer_audio_AudigmaNative_nativeDescribe(

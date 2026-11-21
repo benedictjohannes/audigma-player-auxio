@@ -75,6 +75,12 @@ public final class AudigmaNative {
   /** Converter configuration and thread placement for logs; empty for raw DSD. */
   public static native String nativeDescribe(long handle);
 
+  /**
+   * {clipped input samples, modulator overloads, peak since the last call in 1/1000 of full scale};
+   * zeros for raw DSD. Reading resets the peak.
+   */
+  public static native long[] nativeStats(long handle);
+
   /** Stops and joins the converter and the writer and frees the handle; pause/stop the track first. */
   public static native boolean nativeDestroy(long handle, int timeoutMs);
 }
