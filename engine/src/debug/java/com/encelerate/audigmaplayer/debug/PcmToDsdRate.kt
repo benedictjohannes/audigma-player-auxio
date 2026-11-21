@@ -16,20 +16,25 @@ import com.encelerate.audigmaplayer.audio.AudigmaAudioSink
  *
  * ```
  * am broadcast -n org.oxycblt.auxio.debug/com.encelerate.audigmaplayer.debug.PcmToDsdRate \
- *   --ei dsd 128
+ *   --ei dsd 128 [--ei family 48]
  * ```
  *
- * `dsd`: 64, 128 or 256; 0 plays PCM bit-perfect.
+ * `dsd`: 64, 128 or 256; 0 plays PCM bit-perfect. `family`: 44 (default) or 48 (3.072 MHz base).
  */
 class PcmToDsdRate : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val dsd = intent.getIntExtra("dsd", -1)
+        val base =
+            when (intent.getIntExtra("family", 44)) {
+                48 -> 3_072_000
+                else -> 2_822_400
+            }
         val hz =
             when (dsd) {
                 0 -> 0
                 64,
                 128,
-                256 -> dsd / 64 * 2_822_400
+                256 -> dsd / 64 * base
                 else -> {
                     Log.e(TAG, "dsd must be 0, 64, 128 or 256, got $dsd")
                     return

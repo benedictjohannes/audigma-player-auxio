@@ -131,20 +131,23 @@ pub struct Converter {
 }
 
 impl Converter {
-    /// Prepares audigma for `input_rate` Hz PCM to `dsd_rate` Hz (44.1 kHz family) stereo DSD and
-    /// starts the converter thread, which writes to `engine`.
+    /// Prepares audigma for `input_rate` Hz PCM to `dsd_rate` Hz (a 44.1 or 48 kHz family DSD
+    /// rate) stereo DSD and starts the converter thread, which writes to `engine`.
     pub fn new(engine: Arc<Engine>, dsd_rate: u32, input_rate: u32) -> Result<Converter, String> {
-        let rate_name = match dsd_rate {
-            2_822_400 => "dsd64",
-            5_644_800 => "dsd128",
-            11_289_600 => "dsd256",
+        let (rate_name, family) = match dsd_rate {
+            2_822_400 => ("dsd64", "44100"),
+            5_644_800 => ("dsd128", "44100"),
+            11_289_600 => ("dsd256", "44100"),
+            3_072_000 => ("dsd64", "48000"),
+            6_144_000 => ("dsd128", "48000"),
+            12_288_000 => ("dsd256", "48000"),
             _ => return Err(format!("unsupported DSD rate {dsd_rate}")),
         };
         let pcm_rate =
             PcmRateHz::new(input_rate).ok_or(format!("unsupported PCM rate {input_rate}"))?;
         let settings = Settings::from_toml_str(&format!(
             "schema_version = 1\n[target]\nformat = \"dsd\"\ndsd_rate = \"{rate_name}\"\n\
-             rate_family = \"44100\"\n"
+             rate_family = \"{family}\"\n"
         ))
         .map_err(|e| e.to_string())?;
         let plan = settings

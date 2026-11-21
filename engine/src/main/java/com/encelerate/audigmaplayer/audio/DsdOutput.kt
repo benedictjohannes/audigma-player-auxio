@@ -266,7 +266,16 @@ private constructor(
         private const val DRAIN_MARGIN_US = 20_000L
         private const val UNDERRUN_CHECK_NANOS = 1_000_000_000L
 
-        private val RATES_HZ = setOf(2_822_400, 5_644_800, 11_289_600)
+        private val RATES_HZ =
+            setOf(
+                2_822_400,
+                5_644_800,
+                11_289_600,
+                // The 48 kHz family (the HAL accepts it, 2026-11-21 probe).
+                3_072_000,
+                6_144_000,
+                12_288_000,
+            )
 
         /** PCM rates audigma converts here: 44.1 and 48 kHz families up to 384 kHz. */
         private val PCM_RATES_HZ =
